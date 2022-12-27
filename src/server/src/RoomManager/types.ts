@@ -1,5 +1,8 @@
-import {Server, Socket} from "socket.io";
+import { Socket } from "socket.io";
 
+////////////////////////////////////////////////////////////
+
+// Namespace for the member
 namespace Member {
     export type ID = string;
 
@@ -11,9 +14,10 @@ namespace Member {
     }
 }
 
+// Namespace for the room
 namespace Room {
     export type ID = string;
-    
+
     export interface Instance {
         id: ID;
         members: Map<Member.ID, Member.Instance>;
@@ -21,6 +25,6 @@ namespace Room {
     }
 }
 
+////////////////////////////////////////////////////////////
 
-export type { Socket }
 export type { Member, Room };

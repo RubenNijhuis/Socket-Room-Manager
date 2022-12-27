@@ -1,93 +1,29 @@
-// import { Server } from "socket.io";
+import { Member } from "./RoomManager";
 
-// // Room Manager
-// import RoomManager, { Member, Room } from "./RoomManager";
+const findAnotherPlayer = (
+    player: Member.Instance,
+    opponents: Member.Instance[],
+    evaluation: (
+        player: Member.Instance,
+        potentialOpponent: Member.Instance
+    ) => boolean
+): Member.Instance => {
+    // Set a default in case we can't find a valid one
+    let selectedOpponent: Member.Instance = opponents[0];
 
-// ////////////////////////////////////////////////////////
+    // Go through all opponents
+    for (const potentialOpponent of opponents) {
+        if (player.uid === potentialOpponent.uid) continue;
 
-// const manager = new RoomManager();
+        // Check if the opponent is valid
+        const isValidOpponent = evaluation(player, potentialOpponent);
 
-// interface JoinRoomPayload {
-//     memberID: Member.ID;
-//     roomID: Room.ID;
-// }
+        // If so we return it
+        if (isValidOpponent) return potentialOpponent;
+    }
 
-// interface JoinGamePayload {
-//     memberID: Member.ID;
-// }
+    // Return the default one if no valid one was found
+    return selectedOpponent;
+};
 
-// const QUEUE_IDENTFIEIR = "QUEUE";
-
-// ////////////////////////////////////////////////////////
-// // const server = http.createServer(app);
-// // app.listen(7000, () => {});
-
-// function randomIntFromInterval(min: number, max: number): number {
-//     return Math.floor(Math.random() * (max - min + 1) + min);
-// }
-
-// const 
-
-
-//     // Add member to room based on room name
-//     socket.on("joinRoom", (joinRoomPayload: JoinRoomPayload) => {
-//         const { memberID, roomID } = joinRoomPayload;
-
-//         manager.addMemberToRoom(memberID, roomID, socket);
-//         manager.logAllRooms();
-//     });
-
-//     socket.on("joinGame", (joinGamePayload: JoinGamePayload) => {
-//         // Add new member to queue
-//         manager.addMemberToRoom(
-//             joinGamePayload.memberID,
-//             QUEUE_IDENTFIEIR,
-//             socket
-//         );
-//         socket.emit("gameStatus", { status: "In Queue", message: "In Queue" });
-
-//         const queRoomSize = manager.getRoomSize(QUEUE_IDENTFIEIR);
-
-//         if (queRoomSize === 0) return;
-
-//         const roomMembers = manager.getRoomMembers(QUEUE_IDENTFIEIR);
-//         let otherMember: Member.Instance;
-
-//         const filteredMembers = roomMembers.filter(
-//             (member) => member.uid !== joinGamePayload.memberID
-//         );
-
-//         if (filteredMembers.length >= 1) {
-//             otherMember =
-//                 filteredMembers[
-//                     randomIntFromInterval(0, filteredMembers.length)
-//                 ];
-
-//             manager.removeMemberFromRoom(
-//                 joinGamePayload.memberID,
-//                 QUEUE_IDENTFIEIR
-//             );
-
-//             let newRoomName = `${joinGamePayload.memberID}-${otherMember.uid}`;
-
-//             manager.addMemberToRoom(
-//                 joinGamePayload.memberID,
-//                 newRoomName,
-//                 socket
-//             );
-//             manager.addMemberToRoom(
-//                 otherMember.uid,
-//                 newRoomName,
-//                 otherMember.connection
-//             );
-
-//             socket.emit("gameStatus", {
-//                 status: "In Room",
-//                 message: "In Room",
-//             });
-//             otherMember.connection.emit("gameStatus", {
-//                 status: "In Room",
-//                 message: "In Room",
-//             });
-//         }
-//     });
+export { findAnotherPlayer };
