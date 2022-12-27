@@ -204,7 +204,7 @@ class RoomManager{
      * Adds a member object to the member list
      * @param member
      */
-    addMemberToMemberList(member: Member.Instance): void {
+    private addMemberToMemberList(member: Member.Instance): void {
         this._members.set(member.uid, member);
     }
 
@@ -212,7 +212,7 @@ class RoomManager{
      * Removes a member based on the member ID
      * @param memberID
      */
-    removeMemberByMemberID(memberID: Member.ID): void {
+    private removeMemberByMemberID(memberID: Member.ID): void {
         this.removeMemberFromRoom(memberID);
         this._members.delete(memberID);
     }
@@ -222,30 +222,24 @@ class RoomManager{
      * @param connectionID
      */
     removeMemberByConnectionID(connectionID: string): void {
-        let memberIDFromConnectionID;
-
         for (const [memberID, member] of this._members) {
             if (member.connection.id === connectionID) {
-                memberIDFromConnectionID = member.uid;
-                this.removeMemberFromRoom(memberID, member.roomID);
+                this.removeMemberByMemberID(member.uid);
             }
-        }
-
-        if (memberIDFromConnectionID) {
-            this.removeMemberByMemberID(memberIDFromConnectionID);
         }
     }
 
     //////////////////////////////////////////////////////////
 
     /**
-     * Returns the amount of members in a room
+     * Returns the amount of members in a room.
+     * Will return -1 if room wasn't found
      * @param roomID
      * @returns amount of members in a aroom
      */
     getRoomSize(roomID: Room.ID): number {
         const room = this.getRoomByID(roomID);
-        if (!room) return 0;
+        if (!room) return -1;
 
         const roomSize = room.members.size;
 
@@ -256,6 +250,8 @@ class RoomManager{
      * Returns an array of members based on the room id.
      * Will return an empty array if the room doesn't exist
      * as rooms can only exist if there are members in them.
+     * 
+     * Will return an empty array if no room is found
      * @param roomID
      * @returns Member.Instance[]
      */
@@ -273,7 +269,9 @@ class RoomManager{
     //////////////////////////////////////////////////////////
 
     /**
-     * Retrieve the data in a room based on it's room ID
+     * Retrieve the data in a room based on it's room ID.
+     * 
+     * Will return null if no room is found
      * @param roomID
      * @returns the data object of a room instance
      */
