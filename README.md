@@ -32,29 +32,14 @@ io.on("connection", (socket) => {
 Rooms can keep internal state which can be accessed using a typesafe way. And set easily as well.
 
 ```typescript
-interface RoomDataObject {
+interface TodoList {
     todos: string[];
 }
 
 // Type not required
-const roomData = manager.getRoomData<RoomDataObject>(roomID);
+const roomData = manager.getRoomData<TodoList>(roomID);
 
 // -> Mutate your data
 
 manager.setRoomData(roomID, roomData);
 ```
-
-##### NOTE
-
-Make sure Typescript is installed for the command 'tsc'
-
-#### Testing/Debug
-
-1. Run the front-end however you wish
-2. The manager must be compiled first using the commands `npm run build`
-3. Run the server `npm run dev`
-
-#### TODO
-
-- Make it a package
-- Class declaration file instead of function overloads on awful places

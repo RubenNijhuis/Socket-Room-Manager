@@ -1,14 +1,23 @@
-import { Member, Room } from "./types";
 import { Server, Socket } from "socket.io";
+
+// Types
+import * as Room from "./@types/Room";
+import * as Member from "./@types/Member";
 
 ////////////////////////////////////////////////////////////
 
-class RoomManager{
+class RoomManager {
     private readonly _members: Map<Member.ID, Member.Instance>;
     private readonly _rooms: Map<Room.ID, Room.Instance>;
     private readonly _server: Server;
 
     constructor(server: Server) {
+        if (!server) {
+            throw Error(
+                "No server instance supplied in room manager constructor"
+            );
+        }
+
         this._members = new Map<Member.ID, Member.Instance>();
         this._rooms = new Map<Room.ID, Room.Instance>();
         this._server = server;
@@ -21,11 +30,14 @@ class RoomManager{
      * @param roomID
      * @returns a room if found otherwise null
      */
-    getRoomByID(roomID: Room.ID): Room.Instance | null {
-        const room = this._rooms.get(roomID);
-        if (!room) return null;
+    getRoomByID(roomID: Room.ID): Room.Instance {
+        const retrievedRoom = this._rooms.get(roomID);
 
-        return room;
+        if (!retrievedRoom) {
+            throw Error(`No room found with id: ${roomID}`);
+        }
+
+        return retrievedRoom;
     }
 
     /**
@@ -34,10 +46,13 @@ class RoomManager{
      * @returns a member if found otherwise null
      */
     getMemberByID(memberID: Member.ID): Member.Instance | null {
-        const member = this._members.get(memberID);
-        if (!member) return null;
+        const retrievedMember = this._members.get(memberID);
 
-        return member;
+        if (!retrievedMember) {
+            throw Error(`No member found with id: ${memberID}`);
+        }
+
+        return retrievedMember;
     }
 
     /**
@@ -46,7 +61,7 @@ class RoomManager{
      * @returns a member if found otherwise null
      */
     getMemberByConnectionID(connectionID: Member.ID): Member.Instance | null {
-        for (const [memberID, member] of this._members) {
+        for (const [, member] of this._members) {
             if (member.connection.id === connectionID) {
                 return member;
             }
@@ -58,21 +73,6 @@ class RoomManager{
     //////////////////////////////////////////////////////////
 
     /**
-     * Creates a room with the given roomID.
-     * @param roomID
-     * @returns a room instance
-     */
-    private createRoom(roomID: Room.ID): Room.Instance {
-        const newRoom = {
-            id: roomID,
-            members: new Map<Member.ID, Member.Instance>(),
-            data: null,
-        };
-
-        return newRoom;
-    }
-
-    /**
      * Creates a member with the memberID
      * and socket connections
      * @param memberID
@@ -82,12 +82,31 @@ class RoomManager{
     createMember(memberID: Member.ID, connection: Socket): Member.Instance {
         const newMember: Member.Instance = {
             uid: memberID,
-            roomID: "unset",
+            roomID: Room.DefaultID,
             connection,
-            data: null,
+            data: null
         };
 
+        this._members.set(memberID, newMember);
+
         return newMember;
+    }
+
+    /**
+     * Creates a room with the given roomID.
+     * @param roomID
+     * @returns a room instance
+     */
+    private createRoom(roomID: Room.ID): Room.Instance {
+        const newRoom = {
+            id: roomID,
+            members: new Map<Member.ID, Member.Instance>(),
+            data: null
+        };
+
+        this._rooms.set(roomID, newRoom);
+
+        return newRoom;
     }
 
     //////////////////////////////////////////////////////////
@@ -101,14 +120,15 @@ class RoomManager{
      */
     addMemberToRoom(
         memberToAdd: Member.ID | Member.Instance | Member.Instance[],
-        roomID: Room.ID,
-        connection?: Socket
+        roomID: Room.ID
     ): void {
-        let member: Member.Instance[];
+        let member: Member.Instance[] = [];
         let roomToAddMemberTo = this.getRoomByID(roomID);
 
         // Create the room if it doesn't exist yet
-        if (!roomToAddMemberTo) roomToAddMemberTo = this.createRoom(roomID);
+        if (!roomToAddMemberTo) {
+            roomToAddMemberTo = this.createRoom(roomID);
+        }
 
         /**
          * Due to overloading we have multiple ways
@@ -118,9 +138,6 @@ class RoomManager{
             member = memberToAdd as Member.Instance[];
         } else if (typeof memberToAdd === "object") {
             member = [memberToAdd];
-        } else {
-            if (!connection) return;
-            member = [this.createMember(memberToAdd, connection)];
         }
 
         /**
@@ -128,9 +145,8 @@ class RoomManager{
          * list and update their internal data
          */
         for (const newMemberOfRoom of member) {
-            console.log(`Moving member with: ${newMemberOfRoom.uid} with old room id ${newMemberOfRoom.roomID} to ${roomID}`);
             // Remove them from any room they could still be in
-            if (newMemberOfRoom.roomID !== "unset") {
+            if (newMemberOfRoom.roomID !== Room.DefaultID) {
                 this.removeMemberFromRoom(newMemberOfRoom);
                 newMemberOfRoom.connection.leave(newMemberOfRoom.roomID);
             }
@@ -148,7 +164,7 @@ class RoomManager{
 
     /**
      * Removes a member from a room and deletes
-     * the room if it's empty
+     * the room if it's empty.
      * @param memberID
      * @param roomID
      */
@@ -158,6 +174,8 @@ class RoomManager{
     ): void {
         let roomToRemoveID: Room.ID;
         let memberList: Member.Instance[];
+
+        ////////////////////////////////////////////////////////
 
         /**
          * Due to overloading we have multiple ways
@@ -179,8 +197,12 @@ class RoomManager{
             memberList = [retrievedMember];
         }
 
+        ////////////////////////////////////////////////////////
+
         const roomToRemoveMemberFrom = this.getRoomByID(roomToRemoveID);
-        if (!roomToRemoveMemberFrom) return;
+        if (!roomToRemoveMemberFrom) {
+            throw Error(`No room found with id: ${roomID}`);
+        }
 
         // Go through all the members that need to be removed
         for (const member of memberList) {
@@ -188,7 +210,7 @@ class RoomManager{
 
             // Update the member
             member.connection.leave(roomToRemoveID);
-            member.roomID = "unset";
+            member.roomID = Room.DefaultID;
             this._members.set(member.uid, member);
         }
 
@@ -199,6 +221,18 @@ class RoomManager{
     }
 
     //////////////////////////////////////////////////////////
+
+    /**
+     * Removes a member based on it's connection ID
+     * @param connectionID
+     */
+    removeMemberByConnectionID(connectionID: string): void {
+        for (const [, member] of this._members) {
+            if (member.connection.id === connectionID) {
+                this.removeMemberByMemberID(member.uid);
+            }
+        }
+    }
 
     /**
      * Adds a member object to the member list
@@ -217,18 +251,6 @@ class RoomManager{
         this._members.delete(memberID);
     }
 
-    /**
-     * Removes a member based on it's connection ID
-     * @param connectionID
-     */
-    removeMemberByConnectionID(connectionID: string): void {
-        for (const [memberID, member] of this._members) {
-            if (member.connection.id === connectionID) {
-                this.removeMemberByMemberID(member.uid);
-            }
-        }
-    }
-
     //////////////////////////////////////////////////////////
 
     /**
@@ -238,10 +260,13 @@ class RoomManager{
      * @returns amount of members in a aroom
      */
     getRoomSize(roomID: Room.ID): number {
-        const room = this.getRoomByID(roomID);
-        if (!room) return -1;
+        const retrievedRoom = this.getRoomByID(roomID);
 
-        const roomSize = room.members.size;
+        if (!retrievedRoom) {
+            throw Error(`No room found with id: ${roomID}`);
+        }
+
+        const roomSize = retrievedRoom.members.size;
 
         return roomSize;
     }
@@ -250,18 +275,20 @@ class RoomManager{
      * Returns an array of members based on the room id.
      * Will return an empty array if the room doesn't exist
      * as rooms can only exist if there are members in them.
-     * 
+     *
      * Will return an empty array if no room is found
      * @param roomID
      * @returns Member.Instance[]
      */
     getRoomMembers(roomID: Room.ID): Member.Instance[] {
-        const room = this.getRoomByID(roomID);
+        const retrievedRoom = this.getRoomByID(roomID);
 
-        if (!room) return [];
+        if (!retrievedRoom) {
+            throw Error(`No room found with id: ${roomID}`);
+        }
 
         // Only takes the values of a list
-        const members = [...room.members.values()];
+        const members = [...retrievedRoom.members.values()];
 
         return members;
     }
@@ -270,16 +297,19 @@ class RoomManager{
 
     /**
      * Retrieve the data in a room based on it's room ID.
-     * 
+     *
      * Will return null if no room is found
      * @param roomID
      * @returns the data object of a room instance
      */
-    getRoomData<T>(roomID: Room.ID): T | null {
-        const retrievedFroom = this.getRoomByID(roomID);
-        if (!retrievedFroom) return null;
+    getRoomData<T>(roomID: Room.ID): T {
+        const retrievedRoom = this.getRoomByID(roomID);
 
-        const roomData = retrievedFroom.data;
+        if (!retrievedRoom) {
+            throw Error(`No room found with id: ${roomID}`);
+        }
+
+        const roomData = retrievedRoom.data;
 
         return roomData;
     }
@@ -292,21 +322,58 @@ class RoomManager{
      * @returns
      */
     setRoomData(roomID: Room.ID, data: any): void {
-        const retrievedFroom = this.getRoomByID(roomID);
-        if (!retrievedFroom) return;
+        const retrievedRoom = this.getRoomByID(roomID);
 
-        retrievedFroom.data = data;
+        if (!retrievedRoom) {
+            throw Error(`No room found with id: ${roomID}`);
+        }
 
-        this._rooms.set(roomID, retrievedFroom);
+        retrievedRoom.data = data;
+
+        this._rooms.set(roomID, retrievedRoom);
+    }
+
+    /**
+     * Retrieves the member data based on ID
+     * @param memberId
+     * @returns data
+     */
+    getMemberData<T>(memberId: Member.ID): T {
+        const retrievedMember = this.getMemberByID(memberId);
+
+        if (!retrievedMember) {
+            throw Error(`No member found with id: ${memberId}`);
+        }
+
+        return retrievedMember.data;
+    }
+
+    /**
+     * Sets the player data based on ID
+     * @param memberID
+     */
+    setMemberData<T>(memberId: Member.ID, data: T): void {
+        const retrievedMember = this.getMemberByID(memberId);
+
+        if (!retrievedMember) {
+            throw Error(`No member found with id: ${memberId}`);
+        }
+
+        retrievedMember.data = data;
+
+        this._members.set(memberId, retrievedMember);
     }
 
     /// Logging //////////////////////////////////////////////
 
     logRoom(roomID: Room.ID): void {
-        const room = this.getRoomByID(roomID);
-        if (!room) return;
+        const retrievedRoom = this.getRoomByID(roomID);
 
-        console.log(`Room ${roomID}`, room);
+        if (!retrievedRoom) {
+            throw Error(`No room found with id: ${roomID}`);
+        }
+
+        console.log(`Room ${roomID}`, retrievedRoom);
     }
 
     /// Attched server //////////////
@@ -314,7 +381,7 @@ class RoomManager{
     logServer(): void {
         const server = this._server;
 
-        console.log(server.sockets.adapter.rooms);
+        console.log("Server object", server.sockets.adapter.rooms);
     }
 
     /// Room internals //////////////

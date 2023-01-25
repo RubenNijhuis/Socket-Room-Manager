@@ -1,0 +1,23 @@
+{
+    "name": "socket-room-manager",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/RubenNijhuis/Socket-Room-Manager.git"
+    },
+    "description": "A more standardized way of working with data in socket.io",
+    "version": "1.0.0",
+    "main": "dist/build/index.js",
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "rm -rf dist/ && npm run build:esm",
+        "build:esm": "tsc"
+    },
+    "keywords": ["socket.io", "add-on", "room management"],
+    "author": "RubenNijhuis",
+    "license": "MIT",
+    "dependencies": {
+        "socket.io": "^4.5.4"
+    }
+}
